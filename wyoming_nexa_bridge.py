@@ -230,8 +230,8 @@ async def main():
     )
     parser.add_argument(
         "--language",
-        default="es",
-        help="Default language for transcription (default: es)",
+        default="en",
+        help="Default language for transcription (default: en, auto-detects Spanish)",
     )
     parser.add_argument(
         "--uri",
