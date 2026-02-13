@@ -187,36 +187,51 @@ class NexaAsrHandler(AsyncEventHandler):
 
     async def _transcribe(self, wav_buffer: io.BytesIO) -> str:
         """Send audio to Nexa tablet API and get transcription."""
+        import tempfile
+        import os
+
         url = f"{self.nexa_url}/v1/audio/transcriptions"
 
-        form = aiohttp.FormData()
-        form.add_field(
-            "file",
-            wav_buffer,
-            filename="audio.wav",
-            content_type="audio/wav",
-        )
-        form.add_field("language", self.language)
-
+        # Save to temp file (matches how curl sends files)
+        temp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                f.write(wav_buffer.getvalue())
+                temp_path = f.name
+
+            _LOGGER.info("Temp WAV saved: %s (%d bytes)", temp_path, os.path.getsize(temp_path))
+
             timeout = aiohttp.ClientTimeout(total=30)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(url, data=form) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                        return result.get("text", "")
-                    else:
-                        error_text = await resp.text()
-                        _LOGGER.error(
-                            "Nexa API error: HTTP %d - %s", resp.status, error_text
-                        )
-                        return ""
+                with open(temp_path, "rb") as f:
+                    form = aiohttp.FormData()
+                    form.add_field(
+                        "file",
+                        f,
+                        filename="audio.wav",
+                        content_type="audio/wav",
+                    )
+                    form.add_field("language", self.language)
+
+                    async with session.post(url, data=form) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            return result.get("text", "")
+                        else:
+                            error_text = await resp.text()
+                            _LOGGER.error(
+                                "Nexa API error: HTTP %d - %s", resp.status, error_text
+                            )
+                            return ""
         except aiohttp.ClientError as e:
             _LOGGER.error("Connection to Nexa tablet failed: %s", e)
             return ""
         except Exception as e:
             _LOGGER.error("Unexpected error during transcription: %s", e)
             return ""
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
 
 
 async def main():
