@@ -107,11 +107,11 @@ class NexaAsrHandler(AsyncEventHandler):
             return True
 
         if Transcribe.is_type(event.type):
-            # HA may send a Transcribe event with language info
+            # HA sends language info, but Parakeet auto-detects language
+            # and crashes with "es" code. Always use "en" instead.
             transcribe = Transcribe.from_event(event)
             if transcribe.language:
-                self.language = transcribe.language
-                _LOGGER.info("Language set to: %s", self.language)
+                _LOGGER.info("HA requested language '%s', but using 'en' (Parakeet auto-detects)", transcribe.language)
             return True
 
         if AudioStop.is_type(event.type):
