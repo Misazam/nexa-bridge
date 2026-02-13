@@ -187,7 +187,7 @@ async def main():
     parser.add_argument(
         "--nexa-url",
         required=True,
-        help="URL of the Nexa tablet API (e.g. http://192.168.1.100:8080)",
+        help="URL of the Nexa tablet API (e.g. http://192.168.1.93:8080)",
     )
     parser.add_argument(
         "--language",
@@ -234,3 +234,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
