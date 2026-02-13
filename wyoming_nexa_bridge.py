@@ -189,10 +189,12 @@ class NexaAsrHandler(AsyncEventHandler):
         """Send audio to Nexa tablet API and get transcription."""
         import tempfile
         import os
+        import requests
+        import asyncio
 
         url = f"{self.nexa_url}/v1/audio/transcriptions"
 
-        # Save to temp file (matches how curl sends files)
+        # Save to temp file
         temp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
@@ -201,29 +203,26 @@ class NexaAsrHandler(AsyncEventHandler):
 
             _LOGGER.info("Temp WAV saved: %s (%d bytes)", temp_path, os.path.getsize(temp_path))
 
-            timeout = aiohttp.ClientTimeout(total=30)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            # Use requests (works exactly like curl) in a thread to avoid blocking
+            def do_upload():
                 with open(temp_path, "rb") as f:
-                    form = aiohttp.FormData()
-                    form.add_field(
-                        "file",
-                        f,
-                        filename="audio.wav",
-                        content_type="audio/wav",
-                    )
-                    form.add_field("language", self.language)
+                    files = {"file": ("audio.wav", f, "audio/wav")}
+                    data = {"language": self.language}
+                    resp = requests.post(url, files=files, data=data, timeout=30)
+                    return resp
 
-                    async with session.post(url, data=form) as resp:
-                        if resp.status == 200:
-                            result = await resp.json()
-                            return result.get("text", "")
-                        else:
-                            error_text = await resp.text()
-                            _LOGGER.error(
-                                "Nexa API error: HTTP %d - %s", resp.status, error_text
-                            )
-                            return ""
-        except aiohttp.ClientError as e:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, do_upload)
+
+            if resp.status_code == 200:
+                result = resp.json()
+                return result.get("text", "")
+            else:
+                _LOGGER.error(
+                    "Nexa API error: HTTP %d - %s", resp.status_code, resp.text
+                )
+                return ""
+        except requests.RequestException as e:
             _LOGGER.error("Connection to Nexa tablet failed: %s", e)
             return ""
         except Exception as e:
