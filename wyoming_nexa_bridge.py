@@ -68,6 +68,7 @@ class NexaAsrHandler(AsyncEventHandler):
                             AsrModel(
                                 name="parakeet-tdt-0.6b-v3",
                                 description="Parakeet TDT 0.6B v3 (NPU)",
+                                version="0.6.3",
                                 attribution=Attribution(
                                     name="NVIDIA",
                                     url="https://nvidia.com",
