@@ -9,5 +9,6 @@ services:
       - "10300:10300"
     environment:
       # ⚠️ CHANGE THIS to your OnePlus Pad 2 IP address!
-      - NEXA_URL=http://192.168.1.93:8080
+      - NEXA_URL=http://192.168.1.60:8080
       - LANGUAGE=es
+
