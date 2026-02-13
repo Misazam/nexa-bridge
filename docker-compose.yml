@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  wyoming-nexa-bridge:
+    build: .
+    container_name: wyoming-nexa-bridge
+    restart: unless-stopped
+    ports:
+      - "10300:10300"
+    environment:
+      # ⚠️ CHANGE THIS to your OnePlus Pad 2 IP address!
+      - NEXA_URL=http://192.168.1.100:8080
+      - LANGUAGE=es
