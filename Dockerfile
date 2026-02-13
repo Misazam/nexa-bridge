@@ -11,7 +11,7 @@ COPY wyoming_nexa_bridge.py .
 EXPOSE 10300
 
 # Default: Spanish, tablet IP must be set via environment variable
-ENV NEXA_URL=http://192.168.1.100:8080
+ENV NEXA_URL=http://192.168.1.93:8080
 ENV LANGUAGE=es
 
 # Use shell form so env vars are expanded at runtime
