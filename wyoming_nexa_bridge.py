@@ -59,6 +59,7 @@ class NexaAsrHandler(AsyncEventHandler):
                     AsrProgram(
                         name="nexa-parakeet-npu",
                         description="Nexa Parakeet ASR on Android NPU",
+                        version="1.0.0",
                         attribution=Attribution(
                             name="Nexa AI + NVIDIA Parakeet",
                             url="https://nexa.ai",
