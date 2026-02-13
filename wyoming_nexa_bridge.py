@@ -92,8 +92,8 @@ class NexaAsrHandler(AsyncEventHandler):
             self.sample_width = audio_start.width
             self.channels = audio_start.channels
             self.audio_data = bytearray()
-            _LOGGER.debug(
-                "Audio start: rate=%d, width=%d, channels=%d",
+            _LOGGER.info(
+                "Audio format from Wyoming: rate=%d Hz, width=%d bytes, channels=%d",
                 self.sample_rate,
                 self.sample_width,
                 self.channels,
@@ -111,7 +111,7 @@ class NexaAsrHandler(AsyncEventHandler):
             transcribe = Transcribe.from_event(event)
             if transcribe.language:
                 self.language = transcribe.language
-                _LOGGER.debug("Language set to: %s", self.language)
+                _LOGGER.info("Language set to: %s", self.language)
             return True
 
         if AudioStop.is_type(event.type):
@@ -122,14 +122,53 @@ class NexaAsrHandler(AsyncEventHandler):
                 len(self.audio_data),
             )
 
-            # Build WAV file in memory
+            # Convert to 16kHz mono 16-bit PCM WAV (required by Parakeet)
+            audio_bytes = bytes(self.audio_data)
+
+            # Resample if needed
+            target_rate = 16000
+            target_channels = 1
+            target_width = 2  # 16-bit
+
+            if self.channels > 1:
+                # Convert stereo to mono by averaging channels
+                import struct
+                samples = struct.unpack(f"<{len(audio_bytes) // self.sample_width}h", audio_bytes)
+                mono_samples = []
+                for i in range(0, len(samples), self.channels):
+                    avg = sum(samples[i:i + self.channels]) // self.channels
+                    mono_samples.append(avg)
+                audio_bytes = struct.pack(f"<{len(mono_samples)}h", *mono_samples)
+                _LOGGER.info("Converted %d channels to mono", self.channels)
+
+            if self.sample_rate != target_rate:
+                # Simple linear resampling
+                import struct
+                samples = struct.unpack(f"<{len(audio_bytes) // target_width}h", audio_bytes)
+                ratio = target_rate / self.sample_rate
+                new_length = int(len(samples) * ratio)
+                resampled = []
+                for i in range(new_length):
+                    src_idx = i / ratio
+                    idx = int(src_idx)
+                    if idx >= len(samples) - 1:
+                        resampled.append(samples[-1])
+                    else:
+                        frac = src_idx - idx
+                        val = int(samples[idx] * (1 - frac) + samples[idx + 1] * frac)
+                        resampled.append(max(-32768, min(32767, val)))
+                audio_bytes = struct.pack(f"<{len(resampled)}h", *resampled)
+                _LOGGER.info("Resampled from %d Hz to %d Hz", self.sample_rate, target_rate)
+
+            # Build WAV file in memory (always 16kHz, 16-bit, mono)
             wav_buffer = io.BytesIO()
             with wave.open(wav_buffer, "wb") as wav_file:
-                wav_file.setnchannels(self.channels)
-                wav_file.setsampwidth(self.sample_width)
-                wav_file.setframerate(self.sample_rate)
-                wav_file.writeframes(self.audio_data)
+                wav_file.setnchannels(target_channels)
+                wav_file.setsampwidth(target_width)
+                wav_file.setframerate(target_rate)
+                wav_file.writeframes(audio_bytes)
             wav_buffer.seek(0)
+            _LOGGER.info("WAV file created: 16kHz, 16-bit, mono, %d bytes", wav_buffer.getbuffer().nbytes)
 
             # Send to Nexa tablet for transcription
             text = await self._transcribe(wav_buffer)
@@ -234,4 +273,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
