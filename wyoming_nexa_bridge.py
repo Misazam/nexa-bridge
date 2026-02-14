@@ -75,7 +75,7 @@ class NexaAsrHandler(AsyncEventHandler):
                                     url="https://nvidia.com",
                                 ),
                                 installed=True,
-                                languages=[self.language],
+                                languages=["en", "es"],  # Advertise Spanish support
                             )
                         ],
                     )
@@ -107,11 +107,11 @@ class NexaAsrHandler(AsyncEventHandler):
             return True
 
         if Transcribe.is_type(event.type):
-            # HA sends language info, but Parakeet auto-detects language
-            # and crashes with "es" code. Always use "en" instead.
+            # HA may send a Transcribe event with language info
             transcribe = Transcribe.from_event(event)
             if transcribe.language:
-                _LOGGER.info("HA requested language '%s', but using 'en' (Parakeet auto-detects)", transcribe.language)
+                self.language = transcribe.language
+                _LOGGER.info("Language set to: %s", self.language)
             return True
 
         if AudioStop.is_type(event.type):
@@ -244,8 +244,8 @@ async def main():
     )
     parser.add_argument(
         "--language",
-        default="en",
-        help="Default language for transcription (default: en, auto-detects Spanish)",
+        default="es",
+        help="Default language for transcription (default: es)",
     )
     parser.add_argument(
         "--uri",
